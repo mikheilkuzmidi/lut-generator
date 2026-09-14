@@ -199,11 +199,12 @@ export default function Home() {
               {/* Final Cut Pro */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/final-cut-pro.png"
-                    alt="Final Cut Pro logo"
-                    className="w-8 h-8 object-contain"
-                  />
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-[11px] font-semibold tracking-tight text-muted"
+                  >
+                    FCP
+                  </span>
                   <h3 className="font-medium">Final Cut Pro</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -219,11 +220,12 @@ export default function Home() {
               {/* Premiere Pro */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/premiere-pro.png"
-                    alt="Premiere Pro logo"
-                    className="w-8 h-8 object-contain"
-                  />
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-[11px] font-semibold tracking-tight text-muted"
+                  >
+                    Pr
+                  </span>
                   <h3 className="font-medium">Premiere Pro</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -240,11 +242,12 @@ export default function Home() {
               {/* DaVinci Resolve */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/davinci-resolve.png"
-                    alt="DaVinci Resolve logo"
-                    className="w-8 h-8 object-contain"
-                  />
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-[11px] font-semibold tracking-tight text-muted"
+                  >
+                    DR
+                  </span>
                   <h3 className="font-medium">DaVinci Resolve</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -261,11 +264,12 @@ export default function Home() {
               {/* After Effects */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/after-effects.png"
-                    alt="After Effects logo"
-                    className="w-8 h-8 object-contain"
-                  />
+                  <span
+                    aria-hidden="true"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border text-[11px] font-semibold tracking-tight text-muted"
+                  >
+                    Ae
+                  </span>
                   <h3 className="font-medium">After Effects</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">

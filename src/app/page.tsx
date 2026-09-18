@@ -286,7 +286,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid lg:grid-cols-2 gap-10 items-start">
+        <div className="grid lg:grid-cols-2 gap-10">
           {/* Left: Input */}
           <div className="space-y-8">
             {/* Mode Selection */}
@@ -470,27 +470,39 @@ export default function Home() {
             )}
           </div>
 
-          {/* Right: Output */}
-          <div className="space-y-6">
+          {/* Right: the preview, and nothing else, stretched to the height of
+              the controls beside it. Manual mode is fifteen sliders tall, and
+              the preview is the one thing that gets better with more room, so
+              the picture takes the extra height instead of the column ending
+              early and leaving 187px of bare background. */}
+          <div className="h-full">
             <LutPreview
               params={livePreviewParams ?? defaultParams}
               enabled={livePreviewParams !== null}
             />
+          </div>
+        </div>
 
-            <div className="p-6 border border-border rounded-lg flex flex-col">
-              {result ? (
-                <div className="animate-fade-in flex-1 flex flex-col">
-                  <div className="flex items-center gap-2 mb-4">
-                    <IconCheck className="w-5 h-5 text-green-400" />
-                    <span className="font-medium">LUT Generated Successfully</span>
-                  </div>
-                  
-                  <p className="text-sm text-muted mb-4">{result.description}</p>
-                  
-                  {/* Parameters Preview */}
-                  <div className="flex-1 p-4 bg-card rounded-lg mb-4 overflow-auto">
-                    <p className="text-xs text-muted-foreground mb-2 font-mono">Parameters:</p>
-                    <pre className="text-xs font-mono text-muted whitespace-pre-wrap">
+        {/* What Generate produced. Full width and below both columns,
+            because it is the output of the button on the left rather than a
+            third card stacked under the preview on the right. Stacked there it
+            hung 106px below where the left column ended in Presets mode, and
+            the mismatch flipped to 73px the other way in Manual. */}
+        <div className="mt-10">
+    <div className="p-6 border border-border rounded-lg flex flex-col">
+      {result ? (
+        <div className="animate-fade-in flex-1 flex flex-col">
+          <div className="flex items-center gap-2 mb-4">
+            <IconCheck className="w-5 h-5 text-green-400" />
+            <span className="font-medium">LUT Generated Successfully</span>
+          </div>
+          
+          <p className="text-sm text-muted mb-4">{result.description}</p>
+          
+          {/* Parameters Preview */}
+          <div className="flex-1 p-4 bg-card rounded-lg mb-4 overflow-auto">
+            <p className="text-xs text-muted-foreground mb-2 font-mono">Parameters:</p>
+            <pre className="text-xs font-mono text-muted whitespace-pre-wrap">
 {`Contrast: ${(result.params.contrast * 100).toFixed(0)}%
 Saturation: ${(result.params.saturation * 100).toFixed(0)}%
 Temperature: ${(result.params.temperature * 100).toFixed(0)}%
@@ -500,54 +512,52 @@ Highlights: ${(result.params.highlights * 100).toFixed(0)}%
 Lift RGB: (${(result.params.lift.r * 100).toFixed(0)}, ${(result.params.lift.g * 100).toFixed(0)}, ${(result.params.lift.b * 100).toFixed(0)})
 Gamma RGB: (${(result.params.gamma.r * 100).toFixed(0)}, ${(result.params.gamma.g * 100).toFixed(0)}, ${(result.params.gamma.b * 100).toFixed(0)})
 Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g * 100).toFixed(0)}, ${(result.params.gain.b * 100).toFixed(0)})`}
-                    </pre>
-                  </div>
-                  
-                  {/* File info */}
-                  <div className="flex items-center justify-between p-3 bg-card rounded-lg mb-4">
-                    <div className="flex items-center gap-3">
-                      <IconFilm className="w-5 h-5 text-muted" />
-                      <div>
-                        <p className="text-sm font-medium">{result.filename}</p>
-                        <p className="text-xs text-muted-foreground">
-                          33x33x33 3D LUT
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {(result.lutContent.length / 1024).toFixed(1)} KB
-                    </span>
-                  </div>
-                  
-                  {/* Action buttons */}
-                  <div className="flex gap-3">
-                    <button
-                      onClick={downloadLUT}
-                      className="flex-1 py-3 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground transition-colors"
-                    >
-                      <IconDownload className="w-5 h-5" />
-                      <span>Download .cube</span>
-                    </button>
-                    <button
-                      onClick={copyToClipboard}
-                      className="px-4 py-3 border border-border rounded-lg flex items-center justify-center gap-2 hover:bg-card-hover transition-colors"
-                    >
-                      {copied ? <IconCheck className="w-5 h-5" /> : <IconCopy className="w-5 h-5" />}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 text-left">
-                  <IconPalette className="w-5 h-5 shrink-0 text-border" />
-                  <p className="text-sm text-muted">
-                    The .cube file appears here once you generate. The preview above is live
-                    either way.
-                  </p>
-                </div>
-              )}
-            </div>
-
+            </pre>
           </div>
+          
+          {/* File info */}
+          <div className="flex items-center justify-between p-3 bg-card rounded-lg mb-4">
+            <div className="flex items-center gap-3">
+              <IconFilm className="w-5 h-5 text-muted" />
+              <div>
+                <p className="text-sm font-medium">{result.filename}</p>
+                <p className="text-xs text-muted-foreground">
+                  33x33x33 3D LUT
+                </p>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">
+              {(result.lutContent.length / 1024).toFixed(1)} KB
+            </span>
+          </div>
+          
+          {/* Action buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={downloadLUT}
+              className="flex-1 py-3 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground transition-colors"
+            >
+              <IconDownload className="w-5 h-5" />
+              <span>Download .cube</span>
+            </button>
+            <button
+              onClick={copyToClipboard}
+              className="px-4 py-3 border border-border rounded-lg flex items-center justify-center gap-2 hover:bg-card-hover transition-colors"
+            >
+              {copied ? <IconCheck className="w-5 h-5" /> : <IconCopy className="w-5 h-5" />}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 text-left">
+          <IconPalette className="w-5 h-5 shrink-0 text-border" />
+          <p className="text-sm text-muted">
+            The .cube file appears here once you generate. The preview above is live
+            either way.
+          </p>
+        </div>
+      )}
+    </div>
         </div>
       </main>
 

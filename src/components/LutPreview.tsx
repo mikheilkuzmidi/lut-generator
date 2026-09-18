@@ -177,7 +177,7 @@ export function LutPreview({
   const active = SAMPLES.find((s) => s.file === sample) ?? SAMPLES[0]
 
   return (
-    <div className="border border-border rounded-lg p-4">
+    <div className="border border-border rounded-lg p-4 h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div>
           <p className="text-sm font-medium">Preview</p>
@@ -231,7 +231,9 @@ export function LutPreview({
         <canvas ref={histRef} className="w-full rounded-md bg-card mb-3 block" style={{ height: 96 }} />
       )}
 
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      <div className="flex-1 min-h-0" aria-hidden="true" />
+
+      <div className="grid grid-cols-3 gap-2 mb-3 shrink-0">
         {SAMPLES.map((s) => (
           <button
             key={s.file}

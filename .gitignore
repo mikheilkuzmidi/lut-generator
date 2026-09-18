@@ -49,3 +49,16 @@ yarn-error.log*
 
 # OS
 Thumbs.db
+
+# Agent tool files
+#
+# Written by `next dev` from
+# node_modules/next/dist/server/lib/generate-agent-files.js, but only when
+# @vercel/detect-agent reports the process is being run by an agent, and
+# re-added on every such run. Same category as .idea and .vscode above:
+# generated tool config rather than source.
+AGENTS.md
+CLAUDE.md
+
+# Scratch space for design work in progress, which is not part of the app.
+.design/

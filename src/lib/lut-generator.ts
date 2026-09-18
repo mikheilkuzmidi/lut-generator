@@ -13,8 +13,6 @@ export interface LUTParams {
   gain: { r: number; g: number; b: number }    // RGB gain (highlights)
 }
 
-export type LUTOutputFormat = 'standard' | 'hevc'
-
 export const defaultParams: LUTParams = {
   contrast: 0,
   saturation: 0,
@@ -32,10 +30,31 @@ function clamp(value: number): number {
   return Math.max(0, Math.min(1, value))
 }
 
-// Apply contrast curve
+// The steepest contrast curve a 3D LUT can actually carry.
+//
+// A LUT is a grid, and a grid can only represent a curve that is smooth
+// relative to its spacing. (1 + c) / (1 - c * 0.99) reaches 200 at c = 1,
+// which is a step function pivoting at 0.5 with a transition band about
+// 0.0025 wide. A 33 point grid has a spacing of 0.031, so it steps straight
+// over that band and the file it writes is not the grade that was asked for:
+// measured, a pixel that should have been crushed to black came back at 87
+// out of 255 through the exported .cube, and at 107 through the preview.
+//
+// Capping the factor at 4 leaves a transition band of 0.25, which is eight
+// grid points wide at size 33, so interpolation represents it faithfully.
+// The cap engages only above c = 0.605, and the steepest preset that ships
+// is 0.35, so every shipped look is bit for bit what it was.
+const MAX_CONTRAST_FACTOR = 4
+
 function applyContrast(value: number, contrast: number): number {
-  const factor = (1 + contrast) / (1 - contrast * 0.99)
+  const factor = Math.min((1 + contrast) / (1 - contrast * 0.99), MAX_CONTRAST_FACTOR)
   return clamp((value - 0.5) * factor + 0.5)
+}
+
+export function assertGridSize(size: number): void {
+  if (!Number.isInteger(size) || size < 2) {
+    throw new RangeError(`LUT size must be an integer of 2 or more, got ${size}`)
+  }
 }
 
 // Apply saturation
@@ -120,46 +139,6 @@ function applyShadowsHighlights(r: number, g: number, b: number, shadows: number
   return [applyChannel(r), applyChannel(g), applyChannel(b)]
 }
 
-// Apple HEVC uses "limited range" (16-235 in 8-bit) instead of full range (0-255)
-// This causes colors to appear washed out when standard LUTs are applied
-// These functions convert between limited and full range
-
-// Convert from limited range (16-235) to full range (0-255) normalized
-function limitedToFull(value: number): number {
-  // Limited range: 16/255 = 0.0627, 235/255 = 0.9216
-  // Expand to full 0-1 range
-  return clamp((value - 0.0627) / (0.9216 - 0.0627))
-}
-
-// Convert from full range back to limited range
-function fullToLimited(value: number): number {
-  // Compress from full 0-1 range to limited range
-  return clamp(value * (0.9216 - 0.0627) + 0.0627)
-}
-
-// Apple HEVC often uses a different gamma curve (approximately 1.96 vs standard 2.2)
-// This compensates for the gamma difference
-function applyHEVCGammaCompensation(value: number): number {
-  // Convert from HEVC gamma (~1.96) to standard gamma (2.2)
-  // This makes the image look correct when the LUT is applied to HEVC footage
-  const hevcGamma = 1.96
-  const standardGamma = 2.2
-  
-  // Linearize from HEVC gamma, then re-apply standard gamma
-  const linear = Math.pow(Math.max(0, value), hevcGamma)
-  return Math.pow(linear, 1 / standardGamma)
-}
-
-// Inverse HEVC gamma compensation (for output)
-function applyInverseHEVCGammaCompensation(value: number): number {
-  const hevcGamma = 1.96
-  const standardGamma = 2.2
-  
-  // Convert standard gamma to linear, then apply HEVC gamma
-  const linear = Math.pow(Math.max(0, value), standardGamma)
-  return Math.pow(linear, 1 / hevcGamma)
-}
-
 // Transform a single color through the LUT parameters
 export function transformColor(rIn: number, gIn: number, bIn: number, params: LUTParams): [number, number, number] {
   let r = rIn
@@ -200,52 +179,25 @@ export function transformColor(rIn: number, gIn: number, bIn: number, params: LU
   return [r, g, b]
 }
 
-// Transform color with HEVC compensation
-// This handles the limited range and gamma differences in Apple's HEVC codec
-export function transformColorHEVC(rIn: number, gIn: number, bIn: number, params: LUTParams): [number, number, number] {
-  // Step 1: Convert from limited range to full range
-  let r = limitedToFull(rIn)
-  let g = limitedToFull(gIn)
-  let b = limitedToFull(bIn)
-  
-  // Step 2: Apply HEVC gamma compensation
-  r = applyHEVCGammaCompensation(r)
-  g = applyHEVCGammaCompensation(g)
-  b = applyHEVCGammaCompensation(b)
-  
-  // Step 3: Apply all the color grading transformations
-  const [rGraded, gGraded, bGraded] = transformColor(r, g, b, params)
-  
-  // Step 4: Apply inverse gamma compensation for HEVC output
-  r = applyInverseHEVCGammaCompensation(rGraded)
-  g = applyInverseHEVCGammaCompensation(gGraded)
-  b = applyInverseHEVCGammaCompensation(bGraded)
-  
-  // Step 5: Convert back to limited range
-  r = fullToLimited(r)
-  g = fullToLimited(g)
-  b = fullToLimited(b)
-  
-  return [r, g, b]
-}
 
 // Generate .cube file content
 export function generateCubeLUT(
-  params: LUTParams, 
-  title: string = 'Generated LUT', 
-  size: number = 33,
-  format: LUTOutputFormat = 'standard'
+  params: LUTParams,
+  title: string = 'Generated LUT',
+  size: number = 33
 ): string {
+  // A grid needs two points per axis to have any spacing at all. At size 1
+  // every coordinate is 0/(size-1) = 0/0, and this wrote the literal text
+  // "NaN NaN NaN" into the file. Nothing downstream can recover from that, so
+  // it fails here instead.
+  assertGridSize(size)
+
   const lines: string[] = []
   
   // Header
   lines.push(`TITLE "${title}"`)
   lines.push('')
   lines.push('# Generated by LUT Generator')
-  if (format === 'hevc') {
-    lines.push('# HEVC-Compatible: Optimized for Apple HEVC/H.265 footage')
-    lines.push('# Compensates for limited range (16-235) and gamma differences')
-  }
   lines.push('# Compatible with: Final Cut Pro, Premiere Pro, DaVinci Resolve, After Effects')
   lines.push('')
   lines.push(`LUT_3D_SIZE ${size}`)
@@ -263,9 +215,7 @@ export function generateCubeLUT(
         const gIn = g / (size - 1)
         const bIn = b / (size - 1)
         
-        const [rOut, gOut, bOut] = format === 'hevc' 
-          ? transformColorHEVC(rIn, gIn, bIn, params)
-          : transformColor(rIn, gIn, bIn, params)
+        const [rOut, gOut, bOut] = transformColor(rIn, gIn, bIn, params)
         
         // Format: 6 decimal places, space-separated
         lines.push(`${rOut.toFixed(6)} ${gOut.toFixed(6)} ${bOut.toFixed(6)}`)

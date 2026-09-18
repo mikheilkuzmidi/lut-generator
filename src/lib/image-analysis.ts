@@ -190,13 +190,21 @@ export function analysisToLUTParams(analysis: ImageAnalysis): {
     b: (averageColor.b - neutralGray.b) * 0.5,
   }
   
-  // Gain (highlights): emphasize the dominant color channel
+  // Gain (highlights): emphasize the dominant color channel.
+  //
+  // The divisor is guarded because a fully black reference image makes every
+  // channel average zero, and 0/0 is NaN. The clamp below does not rescue a
+  // NaN, so an all black reference used to bake NaN gain values into the .cube
+  // file, which no editor will load. A black image has no dominant channel, so
+  // the honest answer is no gain shift at all.
   const maxChannel = Math.max(averageColor.r, averageColor.g, averageColor.b)
-  const gain = {
-    r: (averageColor.r / maxChannel - 1) * 0.3,
-    g: (averageColor.g / maxChannel - 1) * 0.3,
-    b: (averageColor.b / maxChannel - 1) * 0.3,
-  }
+  const gain = maxChannel > 0
+    ? {
+        r: (averageColor.r / maxChannel - 1) * 0.3,
+        g: (averageColor.g / maxChannel - 1) * 0.3,
+        b: (averageColor.b / maxChannel - 1) * 0.3,
+      }
+    : { r: 0, g: 0, b: 0 }
   
   // Contrast: map from 0-1 range to -0.5 to 0.5
   const contrastParam = (contrast - 0.5) * 0.6

@@ -4,10 +4,11 @@ import { useState, useRef, useCallback } from 'react'
 import { 
   IconUpload, IconDownload, IconImage, IconSliders, 
   IconSpinner, IconCheck, IconInfo, IconChevronDown, IconPalette,
-  IconCube, IconFilm, IconCopy, IconPlay
+  IconFilm, IconCopy
 } from '@/components/icons'
 import { analyzeImageData, analysisToLUTParams, generateAnalysisDescription, type ImageAnalysis } from '@/lib/image-analysis'
-import { generateCubeLUT, defaultParams, presets, type LUTParams, type LUTOutputFormat } from '@/lib/lut-generator'
+import { generateCubeLUT, defaultParams, presets, type LUTParams } from '@/lib/lut-generator'
+import { LutPreview } from '@/components/LutPreview'
 
 type GenerationMode = 'image' | 'preset' | 'manual'
 
@@ -16,7 +17,6 @@ interface GenerationResult {
   params: LUTParams
   description: string
   filename: string
-  format: LUTOutputFormat
 }
 
 export default function Home() {
@@ -30,10 +30,21 @@ export default function Home() {
   const [showInstructions, setShowInstructions] = useState(false)
   const [manualParams, setManualParams] = useState<LUTParams>(defaultParams)
   const [copied, setCopied] = useState(false)
-  const [outputFormat, setOutputFormat] = useState<LUTOutputFormat>('standard')
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // What Generate would produce right now, so the preview shows the grade
+  // before the button is pressed rather than after. Null when the mode has
+  // nothing selected yet, which is what switches the preview off.
+  const livePreviewParams: LUTParams | null =
+    mode === 'manual'
+      ? manualParams
+      : mode === 'preset' && selectedPreset
+        ? presets[selectedPreset]
+        : mode === 'image' && imageAnalysis
+          ? { ...defaultParams, ...analysisToLUTParams(imageAnalysis) }
+          : null
 
   const presetOptions = [
     { value: 'cinematic-orange-teal', label: 'Cinematic Orange & Teal' },
@@ -96,30 +107,27 @@ export default function Home() {
         const analysisParams = analysisToLUTParams(imageAnalysis)
         params = { ...defaultParams, ...analysisParams }
         const analysisDesc = generateAnalysisDescription(imageAnalysis)
-        const formatLabel = outputFormat === 'hevc' ? ' (HEVC)' : ''
-        description = `Generated from image${formatLabel}: ${analysisDesc}`
-        filename = `image-lut${outputFormat === 'hevc' ? '-hevc' : ''}-${Date.now()}.cube`
-        lutContent = generateCubeLUT(params, `Image Reference LUT${formatLabel} - ${analysisDesc}`, 33, outputFormat)
+        description = `Generated from image: ${analysisDesc}`
+        filename = `image-lut-${Date.now()}.cube`
+        lutContent = generateCubeLUT(params, `Image Reference LUT - ${analysisDesc}`, 33)
       } else if (mode === 'preset' && selectedPreset) {
         // Use preset
         params = presets[selectedPreset]
-        const formatLabel = outputFormat === 'hevc' ? ' (HEVC)' : ''
-        description = `Preset${formatLabel}: ${presetOptions.find(p => p.value === selectedPreset)?.label}`
-        filename = `${selectedPreset}${outputFormat === 'hevc' ? '-hevc' : ''}.cube`
+        description = `Preset: ${presetOptions.find(p => p.value === selectedPreset)?.label}`
+        filename = `${selectedPreset}.cube`
         const presetTitle = presetOptions.find(p => p.value === selectedPreset)?.label || selectedPreset
-        lutContent = generateCubeLUT(params, `${presetTitle}${formatLabel}`, 33, outputFormat)
+        lutContent = generateCubeLUT(params, presetTitle, 33)
       } else if (mode === 'manual') {
         // Use manual parameters
         params = manualParams
-        const formatLabel = outputFormat === 'hevc' ? ' (HEVC)' : ''
-        description = `Custom manual parameters${formatLabel}`
-        filename = `custom-lut${outputFormat === 'hevc' ? '-hevc' : ''}-${Date.now()}.cube`
-        lutContent = generateCubeLUT(params, `Custom LUT${formatLabel}`, 33, outputFormat)
+        description = 'Custom manual parameters'
+        filename = `custom-lut-${Date.now()}.cube`
+        lutContent = generateCubeLUT(params, 'Custom LUT', 33)
       } else {
         throw new Error('Please provide input for generation')
       }
 
-      setResult({ lutContent, params, description, filename, format: outputFormat })
+      setResult({ lutContent, params, description, filename })
     } catch (err) {
       console.error('Error generating LUT', err)
 
@@ -173,7 +181,6 @@ export default function Home() {
       <header className="border-b border-border">
         <div className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <IconCube className="w-8 h-8" />
             <div>
               <h1 className="text-xl font-semibold tracking-tight">LUT Generator</h1>
               <p className="text-sm text-muted">Create professional .cube LUTs</p>
@@ -199,11 +206,6 @@ export default function Home() {
               {/* Final Cut Pro */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/final-cut-pro.png"
-                    alt="Final Cut Pro logo"
-                    className="w-8 h-8 object-contain"
-                  />
                   <h3 className="font-medium">Final Cut Pro</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -219,11 +221,6 @@ export default function Home() {
               {/* Premiere Pro */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/premiere-pro.png"
-                    alt="Premiere Pro logo"
-                    className="w-8 h-8 object-contain"
-                  />
                   <h3 className="font-medium">Premiere Pro</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -240,11 +237,6 @@ export default function Home() {
               {/* DaVinci Resolve */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/davinci-resolve.png"
-                    alt="DaVinci Resolve logo"
-                    className="w-8 h-8 object-contain"
-                  />
                   <h3 className="font-medium">DaVinci Resolve</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -261,11 +253,6 @@ export default function Home() {
               {/* After Effects */}
               <div className="p-4 border border-border rounded-lg">
                 <div className="flex items-center gap-3 mb-3">
-                  <img
-                    src="/logos/after-effects.png"
-                    alt="After Effects logo"
-                    className="w-8 h-8 object-contain"
-                  />
                   <h3 className="font-medium">After Effects</h3>
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
@@ -299,7 +286,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid lg:grid-cols-2 gap-12">
+        <div className="grid lg:grid-cols-2 gap-10 items-start">
           {/* Left: Input */}
           <div className="space-y-8">
             {/* Mode Selection */}
@@ -316,7 +303,7 @@ export default function Home() {
                     onClick={() => setMode(id as GenerationMode)}
                     className={`flex flex-col items-center gap-2 p-4 border rounded-lg transition-all ${
                       mode === id 
-                        ? 'border-foreground bg-foreground text-background' 
+                        ? 'border-foreground bg-card-hover text-foreground' 
                         : 'border-border hover:border-muted-foreground'
                     }`}
                   >
@@ -381,7 +368,7 @@ export default function Home() {
                       onClick={() => setSelectedPreset(preset.value)}
                       className={`p-4 text-left border rounded-lg transition-all ${
                         selectedPreset === preset.value
-                          ? 'border-foreground bg-foreground text-background'
+                          ? 'border-foreground bg-card-hover text-foreground'
                           : 'border-border hover:border-muted-foreground'
                       }`}
                     >
@@ -459,45 +446,12 @@ export default function Home() {
               </div>
             )}
 
-            {/* Output Format Selection */}
-            <div className="p-4 border border-border rounded-lg">
-              <label className="block text-sm font-medium mb-3">Output Format</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => setOutputFormat('standard')}
-                  className={`p-3 text-left border rounded-lg transition-all ${
-                    outputFormat === 'standard'
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border hover:border-muted-foreground'
-                  }`}
-                >
-                  <span className="text-sm font-medium block">Standard</span>
-                  <span className="text-xs opacity-70">H.264, ProRes, etc.</span>
-                </button>
-                <button
-                  onClick={() => setOutputFormat('hevc')}
-                  className={`p-3 text-left border rounded-lg transition-all ${
-                    outputFormat === 'hevc'
-                      ? 'border-foreground bg-foreground text-background'
-                      : 'border-border hover:border-muted-foreground'
-                  }`}
-                >
-                  <span className="text-sm font-medium block">Apple HEVC</span>
-                  <span className="text-xs opacity-70">iPhone, iPad, Mac</span>
-                </button>
-              </div>
-              {outputFormat === 'hevc' && (
-                <p className="mt-2 text-xs text-muted">
-                  Optimized for Apple HEVC/H.265 footage. Compensates for limited range and gamma differences.
-                </p>
-              )}
-            </div>
 
             {/* Generate Button */}
             <button
               onClick={generateLUT}
               disabled={isGenerating || (mode === 'image' && !imageAnalysis) || (mode === 'preset' && !selectedPreset)}
-              className="w-full py-4 bg-foreground text-background font-medium rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-4 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isGenerating ? (
                 <>
@@ -505,10 +459,7 @@ export default function Home() {
                   <span>Generating...</span>
                 </>
               ) : (
-                <>
-                  <IconPlay className="w-5 h-5" />
-                  <span>Generate LUT</span>
-                </>
+                <span>Generate LUT</span>
               )}
             </button>
 
@@ -521,7 +472,12 @@ export default function Home() {
 
           {/* Right: Output */}
           <div className="space-y-6">
-            <div className="p-6 border border-border rounded-lg min-h-[400px] flex flex-col">
+            <LutPreview
+              params={livePreviewParams ?? defaultParams}
+              enabled={livePreviewParams !== null}
+            />
+
+            <div className="p-6 border border-border rounded-lg flex flex-col">
               {result ? (
                 <div className="animate-fade-in flex-1 flex flex-col">
                   <div className="flex items-center gap-2 mb-4">
@@ -550,11 +506,11 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
                   {/* File info */}
                   <div className="flex items-center justify-between p-3 bg-card rounded-lg mb-4">
                     <div className="flex items-center gap-3">
-                      <IconCube className="w-5 h-5 text-muted" />
+                      <IconFilm className="w-5 h-5 text-muted" />
                       <div>
                         <p className="text-sm font-medium">{result.filename}</p>
                         <p className="text-xs text-muted-foreground">
-                          33x33x33 3D LUT {result.format === 'hevc' && '• HEVC-Compatible'}
+                          33x33x33 3D LUT
                         </p>
                       </div>
                     </div>
@@ -567,7 +523,7 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
                   <div className="flex gap-3">
                     <button
                       onClick={downloadLUT}
-                      className="flex-1 py-3 bg-foreground text-background font-medium rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                      className="flex-1 py-3 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground transition-colors"
                     >
                       <IconDownload className="w-5 h-5" />
                       <span>Download .cube</span>
@@ -581,30 +537,16 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
                   </div>
                 </div>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center">
-                  <IconCube className="w-16 h-16 text-border mb-4" />
-                  <p className="text-muted">Your generated LUT will appear here</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Choose a mode and generate to get started
+                <div className="flex items-center gap-3 text-left">
+                  <IconPalette className="w-5 h-5 shrink-0 text-border" />
+                  <p className="text-sm text-muted">
+                    The .cube file appears here once you generate. The preview above is live
+                    either way.
                   </p>
                 </div>
               )}
             </div>
 
-            {/* Format info */}
-            <div className="p-4 border border-border rounded-lg">
-              <div className="flex items-start gap-3">
-                <IconInfo className="w-5 h-5 mt-0.5 flex-shrink-0 text-muted" />
-                <div className="text-sm text-muted">
-                  <p className="font-medium text-foreground mb-1">About .cube Format</p>
-                  <p>
-                    The .cube format is an industry-standard 3D LUT file format created by Adobe. 
-                    It stores color transformation data as RGB values from 0.0 to 1.0 in a 33x33x33 grid, 
-                    providing 35,937 color mapping points for smooth, accurate color grading.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </main>
@@ -612,8 +554,14 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
       {/* Footer */}
       <footer className="border-t border-border mt-12">
         <div className="max-w-6xl mx-auto px-6 py-6 text-center text-sm text-muted-foreground">
-          <p>LUT Generator creates valid, non-corrupted .cube files compatible with all major editing software.</p>
-          <p className="mt-1">Final Cut Pro / Premiere Pro / DaVinci Resolve / After Effects / Avid Media Composer / LumaFusion</p>
+          <p>
+            Every file is a standard 33x33x33 3D LUT: RGB from 0.0 to 1.0 across 35,937 mapping
+            points, in the .cube format Adobe published.
+          </p>
+          <p className="mt-1">
+            Final Cut Pro / Premiere Pro / DaVinci Resolve / After Effects / Avid Media Composer /
+            LumaFusion
+          </p>
         </div>
       </footer>
     </div>

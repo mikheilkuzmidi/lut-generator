@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useCallback } from 'react'
+import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { 
   IconUpload, IconDownload, IconImage, IconSliders, 
   IconSpinner, IconCheck, IconInfo, IconChevronDown, IconPalette,
@@ -173,6 +174,7 @@ export default function Home() {
   }
 
   return (
+    <MotionConfig reducedMotion="user">
     <div className="min-h-screen">
       {/* Hidden canvas for image analysis */}
       <canvas ref={canvasRef} className="hidden" />
@@ -198,8 +200,16 @@ export default function Home() {
       </header>
 
       {/* Instructions Panel */}
+      <AnimatePresence initial={false}>
       {showInstructions && (
-        <div className="border-b border-border bg-card animate-slide-up">
+        <motion.div
+          key="instructions"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.26, ease: [0.16, 1, 0.3, 1] }}
+          className="border-b border-border bg-card overflow-hidden"
+        >
           <div className="max-w-6xl mx-auto px-6 py-8">
             <h2 className="text-lg font-semibold mb-6">How to Use .cube LUTs in Your Editing Software</h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -281,12 +291,13 @@ export default function Home() {
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
 
       {/* Main Content */}
       <main className="max-w-6xl mx-auto px-6 py-12">
-        <div className="grid lg:grid-cols-2 gap-10">
+        <div className="grid lg:grid-cols-2 gap-10 lg:min-h-[699px]">
           {/* Left: Input */}
           <div className="space-y-8">
             {/* Mode Selection */}
@@ -314,9 +325,17 @@ export default function Home() {
               </div>
             </div>
 
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              >
             {/* Image Upload */}
             {mode === 'image' && (
-              <div className="animate-fade-in">
+              <div>
                 <label className="block text-sm font-medium mb-2">
                   Upload Reference Image
                 </label>
@@ -357,7 +376,7 @@ export default function Home() {
 
             {/* Preset Selection */}
             {mode === 'preset' && (
-              <div className="animate-fade-in">
+              <div>
                 <label className="block text-sm font-medium mb-2">
                   Choose a Preset
                 </label>
@@ -381,7 +400,7 @@ export default function Home() {
 
             {/* Manual Controls */}
             {mode === 'manual' && (
-              <div className="animate-fade-in space-y-4">
+              <div className="space-y-4">
                 <label className="block text-sm font-medium">
                   Adjust Parameters
                 </label>
@@ -445,7 +464,8 @@ export default function Home() {
                 </div>
               </div>
             )}
-
+              </motion.div>
+            </AnimatePresence>
 
             {/* Generate Button */}
             <button
@@ -489,9 +509,18 @@ export default function Home() {
             hung 106px below where the left column ended in Presets mode, and
             the mismatch flipped to 73px the other way in Manual. */}
         <div className="mt-10">
-    <div className="p-6 border border-border rounded-lg flex flex-col">
+    <div className="border border-border rounded-lg overflow-hidden">
+      <AnimatePresence mode="wait" initial={false}>
       {result ? (
-        <div className="animate-fade-in flex-1 flex flex-col">
+        <motion.div
+          key="result"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
+          className="overflow-hidden"
+        >
+          <div className="p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-4">
             <IconCheck className="w-5 h-5 text-green-400" />
             <span className="font-medium">LUT Generated Successfully</span>
@@ -547,16 +576,27 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
               {copied ? <IconCheck className="w-5 h-5" /> : <IconCopy className="w-5 h-5" />}
             </button>
           </div>
-        </div>
+          </div>
+        </motion.div>
       ) : (
-        <div className="flex items-center gap-3 text-left">
-          <IconPalette className="w-5 h-5 shrink-0 text-border" />
-          <p className="text-sm text-muted">
-            The .cube file appears here once you generate. The preview above is live
-            either way.
-          </p>
-        </div>
+        <motion.div
+          key="empty"
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: 0.16, ease: [0.16, 1, 0.3, 1] }}
+          className="overflow-hidden"
+        >
+          <div className="p-6 flex items-center gap-3 text-left">
+            <IconPalette className="w-5 h-5 shrink-0 text-border" />
+            <p className="text-sm text-muted">
+              The .cube file appears here once you generate. The preview above is live
+              either way.
+            </p>
+          </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </div>
         </div>
       </main>
@@ -575,5 +615,6 @@ Gain RGB: (${(result.params.gain.r * 100).toFixed(0)}, ${(result.params.gain.g *
         </div>
       </footer>
     </div>
+    </MotionConfig>
   )
 }

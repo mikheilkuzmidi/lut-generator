@@ -192,6 +192,7 @@ export function LutPreview({
         </button>
       </div>
 
+      <div className="flex-1 min-h-0 flex flex-col justify-center">
       <div className="relative rounded-md overflow-hidden bg-card mb-3">
         <canvas ref={canvasRef} className="w-full block" />
         {!loaded && (
@@ -230,8 +231,7 @@ export function LutPreview({
       {showHistogram && (
         <canvas ref={histRef} className="w-full rounded-md bg-card mb-3 block" style={{ height: 96 }} />
       )}
-
-      <div className="flex-1 min-h-0" aria-hidden="true" />
+      </div>
 
       <div className="grid grid-cols-3 gap-2 mb-3 shrink-0">
         {SAMPLES.map((s) => (

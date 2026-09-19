@@ -3,8 +3,8 @@
 import { useState, useRef, useCallback } from 'react'
 import { AnimatePresence, MotionConfig, motion } from 'motion/react'
 import { 
-  IconUpload, IconDownload, IconImage, IconSliders, 
-  IconSpinner, IconCheck, IconInfo, IconChevronDown, IconPalette,
+  IconUpload, IconDownload, IconImage, IconSliders,
+  IconCheck, IconInfo, IconChevronDown, IconPalette,
   IconFilm, IconCopy
 } from '@/components/icons'
 import { analyzeImageData, analysisToLUTParams, generateAnalysisDescription, type ImageAnalysis } from '@/lib/image-analysis'
@@ -23,7 +23,6 @@ interface GenerationResult {
 export default function Home() {
   const [mode, setMode] = useState<GenerationMode>('preset')
   const [selectedPreset, setSelectedPreset] = useState<string>('')
-  const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<GenerationResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [imageAnalysis, setImageAnalysis] = useState<ImageAnalysis | null>(null)
@@ -34,6 +33,11 @@ export default function Home() {
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const resultRef = useRef<HTMLDivElement>(null)
+  // Set when a generate has just succeeded, cleared once the result panel has
+  // finished opening and been scrolled to. A ref rather than state because
+  // nothing renders differently for it.
+  const revealResult = useRef(false)
 
   // What Generate would produce right now, so the preview shows the grade
   // before the button is pressed rather than after. Null when the mode has
@@ -92,8 +96,18 @@ export default function Home() {
     reader.readAsDataURL(file)
   }, [])
 
-  const generateLUT = async () => {
-    setIsGenerating(true)
+  /**
+   * Synchronous, and no longer pretending otherwise.
+   *
+   * This was an `async` function with no `await` anywhere in it, which means
+   * the whole body ran in one go inside the click handler. React batched the
+   * state it set, so `isGenerating` went true and false again within a single
+   * render and the "Generating..." spinner it gated could never paint. The
+   * work is a 33x33x33 grid: 35,937 entries, measured at 13ms. There is
+   * nothing to wait for and nothing to spin about, so the button answers the
+   * press with its own :active state instead.
+   */
+  const generateLUT = () => {
     setError(null)
     setResult(null)
 
@@ -129,6 +143,21 @@ export default function Home() {
       }
 
       setResult({ lutContent, params, description, filename })
+
+      // Ask for the result to be brought into view once it has opened.
+      //
+      // The panel sits below both columns, so on anything shorter than a very
+      // tall window a successful generate happened entirely off screen: the
+      // filename, the size and the download button were all under the fold,
+      // and pressing the button looked like pressing a dead control.
+      //
+      // The scroll cannot happen here. The panel animates from zero height
+      // over 340ms, so scrolling now scrolls to a 0px tall element in a
+      // document that has not grown yet: two frames of deferral still only
+      // moved 75px, and the download button stayed exactly where it was. It is
+      // done on the animation's own completion instead, which is the one
+      // moment the panel is its final size.
+      revealResult.current = true
     } catch (err) {
       console.error('Error generating LUT', err)
 
@@ -143,8 +172,6 @@ export default function Home() {
       }
 
       setError(message)
-    } finally {
-      setIsGenerating(false)
     }
   }
 
@@ -220,10 +247,10 @@ export default function Home() {
                 </div>
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
                   <li>Open Effects Browser</li>
-                  <li>Search for "Custom LUT"</li>
+                  <li>Search for “Custom LUT”</li>
                   <li>Drag effect to your clip</li>
                   <li>In Inspector, click LUT dropdown</li>
-                  <li>Choose "Choose Custom LUT"</li>
+                  <li>Choose “Choose Custom LUT”</li>
                   <li>Select your .cube file</li>
                 </ol>
               </div>
@@ -237,8 +264,8 @@ export default function Home() {
                   <li>Select your clip</li>
                   <li>Open Lumetri Color panel</li>
                   <li>Go to Creative tab</li>
-                  <li>Click "Look" dropdown</li>
-                  <li>Select "Browse"</li>
+                  <li>Click “Look” dropdown</li>
+                  <li>Select “Browse”</li>
                   <li>Choose your .cube file</li>
                   <li>Adjust Intensity as needed</li>
                 </ol>
@@ -252,9 +279,9 @@ export default function Home() {
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
                   <li>Go to Project Settings</li>
                   <li>Select Color Management</li>
-                  <li>Click "Open LUT Folder"</li>
+                  <li>Click “Open LUT Folder”</li>
                   <li>Copy .cube file there</li>
-                  <li>Click "Update Lists"</li>
+                  <li>Click “Update Lists”</li>
                   <li>In Color tab, right-click node</li>
                   <li>Choose LUTs → 3D LUT</li>
                 </ol>
@@ -268,9 +295,9 @@ export default function Home() {
                 <ol className="text-sm text-muted space-y-1.5 list-decimal list-inside">
                   <li>Select your layer</li>
                   <li>Effect → Color Correction</li>
-                  <li>Apply "Lumetri Color"</li>
+                  <li>Apply “Lumetri Color”</li>
                   <li>In Creative section</li>
-                  <li>Click "Look" dropdown</li>
+                  <li>Click “Look” dropdown</li>
                   <li>Browse to .cube file</li>
                 </ol>
               </div>
@@ -351,6 +378,12 @@ export default function Home() {
                   className="w-full h-48 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-3 hover:border-muted-foreground transition-colors"
                 >
                   {uploadedImage ? (
+                    // A plain <img>, deliberately. This src is a data: URL for
+                    // a file the reader picked a moment ago on their own
+                    // machine: there is no network request to optimise, no
+                    // remote host to size against, and next/image would need
+                    // `unoptimized` plus fixed dimensions to render it at all.
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={uploadedImage} alt="Reference" className="max-h-40 object-contain rounded" />
                   ) : (
                     <>
@@ -467,20 +500,23 @@ export default function Home() {
               </motion.div>
             </AnimatePresence>
 
-            {/* Generate Button */}
+            {/* Generate Button.
+                Pressing it has to answer immediately, and it used to answer
+                with nothing at all: the only feedback was a hover border, the
+                "Generating..." state never renders (see generateLUT), and the
+                result it produces is below both columns and off the bottom of
+                the screen. Click, and the page looked identical.
+                So the press itself is now the feedback: the surface steps up
+                and the button takes a small amount of travel, both on the
+                :active state, which the browser paints on mousedown without
+                waiting for React. Shown by surface and by weight rather than
+                by colour, because this interface has no accent hue on purpose. */}
             <button
               onClick={generateLUT}
-              disabled={isGenerating || (mode === 'image' && !imageAnalysis) || (mode === 'preset' && !selectedPreset)}
-              className="w-full py-4 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={(mode === 'image' && !imageAnalysis) || (mode === 'preset' && !selectedPreset)}
+              className="w-full py-4 bg-card-hover text-foreground border border-border font-medium rounded-lg flex items-center justify-center gap-2 hover:border-muted-foreground active:bg-border active:border-muted-foreground motion-safe:active:scale-[0.99] transition-[background-color,border-color,transform] duration-100 ease-out focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-muted-foreground disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100"
             >
-              {isGenerating ? (
-                <>
-                  <IconSpinner className="w-5 h-5" />
-                  <span>Generating...</span>
-                </>
-              ) : (
-                <span>Generate LUT</span>
-              )}
+              <span>Generate LUT</span>
             </button>
 
             {error && (
@@ -509,7 +545,7 @@ export default function Home() {
             hung 106px below where the left column ended in Presets mode, and
             the mismatch flipped to 73px the other way in Manual. */}
         <div className="mt-10">
-    <div className="border border-border rounded-lg overflow-hidden">
+    <div ref={resultRef} className="border border-border rounded-lg overflow-hidden scroll-mb-6">
       <AnimatePresence mode="wait" initial={false}>
       {result ? (
         <motion.div
@@ -519,6 +555,22 @@ export default function Home() {
           exit={{ height: 0, opacity: 0 }}
           transition={{ duration: 0.34, ease: [0.16, 1, 0.3, 1] }}
           className="overflow-hidden"
+          onAnimationComplete={() => {
+            if (!revealResult.current) return
+            revealResult.current = false
+            resultRef.current?.scrollIntoView({
+              // The browser's own reduced-motion setting decides this, not us.
+              behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+                ? 'auto'
+                : 'smooth',
+              // `end`, not `nearest`. The panel opens 468px tall just below the
+              // fold, and `nearest` settled for a nudge that brought the
+              // heading into view while leaving the download button, the
+              // filename and the size under the edge. Aligning the bottom puts
+              // the thing you came for on screen.
+              block: 'end',
+            })
+          }}
         >
           <div className="p-6 flex flex-col">
           <div className="flex items-center gap-2 mb-4">

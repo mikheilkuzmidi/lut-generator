@@ -76,8 +76,10 @@ export function analyzeImageData(imageData: ImageData): ImageAnalysis {
     totalG += g
     totalB += b
     
-    const [h, s, l] = rgbToHsl(r, g, b)
-    totalSaturation += s
+    // Saturation only. Hue and lightness are computed by rgbToHsl and not
+    // wanted here, so they are skipped rather than bound to names nothing uses.
+    const [, saturation] = rgbToHsl(r, g, b)
+    totalSaturation += saturation
     
     const lum = getLuminance(r, g, b)
     totalLuminance += lum

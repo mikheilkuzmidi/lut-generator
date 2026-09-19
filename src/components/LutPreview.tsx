@@ -23,7 +23,17 @@ export const SAMPLES = [
 // responsive: applyLUT walks every pixel on every parameter change.
 const PREVIEW_WIDTH = 720
 
-type Loaded = { bitmap: ImageBitmap; width: number; height: number }
+/**
+ * `sample` is part of this on purpose.
+ *
+ * Clearing the previous decode used to be a `setDecoded(null)` at the top of
+ * the effect that starts the next one, which is a synchronous setState inside
+ * an effect body and a cascading render every time the sample changes.
+ * Carrying the filename instead makes "this decode is for the picture we are
+ * no longer showing" something the render can see, so nothing has to be reset
+ * on the way in.
+ */
+type Loaded = { sample: string; bitmap: ImageBitmap; width: number; height: number }
 
 export function LutPreview({
   params,
@@ -33,11 +43,13 @@ export function LutPreview({
   enabled: boolean
 }) {
   const [sample, setSample] = useState<string>(SAMPLES[0].file)
-  const [loaded, setLoaded] = useState<Loaded | null>(null)
+  const [decoded, setDecoded] = useState<Loaded | null>(null)
   const [split, setSplit] = useState(0.5)
   const [showHistogram, setShowHistogram] = useState(false)
   const [clipping, setClipping] = useState<{ black: number; white: number } | null>(null)
-  const [busy, setBusy] = useState(false)
+  // The decode that belongs to the picture currently selected. A decode for a
+  // previous sample reads as "not loaded yet", which is what it is.
+  const loaded = decoded?.sample === sample ? decoded : null
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const histRef = useRef<HTMLCanvasElement>(null)
@@ -48,17 +60,16 @@ export function LutPreview({
   // parameter change, so the decode must not be in that path.
   useEffect(() => {
     let cancelled = false
-    setLoaded(null)
     fetch(`/samples/${sample}`)
       .then((r) => r.blob())
       .then((blob) => createImageBitmap(blob))
       .then((bitmap) => {
         if (cancelled) return
         const scale = PREVIEW_WIDTH / bitmap.width
-        setLoaded({ bitmap, width: PREVIEW_WIDTH, height: Math.round(bitmap.height * scale) })
+        setDecoded({ sample, bitmap, width: PREVIEW_WIDTH, height: Math.round(bitmap.height * scale) })
       })
       .catch(() => {
-        if (!cancelled) setLoaded(null)
+        if (!cancelled) setDecoded(null)
       })
     return () => {
       cancelled = true
@@ -164,11 +175,7 @@ export function LutPreview({
   // events far faster than a 720px grade completes.
   useEffect(() => {
     if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
-    setBusy(true)
-    frameRef.current = requestAnimationFrame(() => {
-      draw()
-      setBusy(false)
-    })
+    frameRef.current = requestAnimationFrame(draw)
     return () => {
       if (frameRef.current !== null) cancelAnimationFrame(frameRef.current)
     }
@@ -257,7 +264,7 @@ export function LutPreview({
             recoverable.
           </>
         ) : (
-          <>No clipping. {busy ? 'Grading' : 'Samples are CC0 or public domain.'}</>
+          <>No clipping. Samples are CC0 or public domain.</>
         )}
       </p>
     </div>

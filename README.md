@@ -155,7 +155,9 @@ The generated LUTs follow the Adobe Cube LUT specification:
 
 ## Contributing
 
-Keep changes small and focused. Please run `npm run build` before opening a PR.
+Keep changes small and focused. Please run `npm run verify` before opening a
+PR: it runs the type check, ESLint, the tests and a production build, in that
+order, and is what a green pull request has to pass.
 
 ## Code Of Conduct
 
